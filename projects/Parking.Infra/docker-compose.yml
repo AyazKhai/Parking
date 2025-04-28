@@ -1,0 +1,36 @@
+version: '4.34.2'
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: "parking"
+      POSTGRES_USER: "user1"
+      POSTGRES_PASSWORD: "parkingpassword"
+    ports:
+      - "5431:5432"
+
+  postgres_db2:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: "booking"
+      POSTGRES_USER: "user2"
+      POSTGRES_PASSWORD: "bookingpassword"
+    ports:
+      - "5433:5432" 
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    hostname: rabbitmq
+
+volumes:
+  postgres:
+  postgres_db2:
+  rabbitmqdata:
+
