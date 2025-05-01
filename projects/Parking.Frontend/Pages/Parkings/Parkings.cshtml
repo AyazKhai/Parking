@@ -1,0 +1,68 @@
+﻿@page "/parkings"
+@model Parking.Frontend.Pages.Parkings.ParkingsModel
+@{
+}
+
+<h1>Parkings</h1>
+
+<a asp-page="CreateParking" class="btn btn-primary">Create New</a>
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">
+        @Model.SuccessMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">
+        @Model.ErrorMessage
+    </div>
+}
+
+@if (Model.parks != null && Model.parks.Any())
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Address</th>
+                <th>Information</th>
+                <th>Available</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var park in Model.parks)
+            {
+                <tr>
+                    <td>@park.id</td>
+                    <td>@park.address</td>
+                    <td>@park.information</td>
+                    <td>@(park.isAvailable ? "Yes" : "No")</td>
+                    <td>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@park.id" >
+                            <button type="submit">Удалить</button>
+                        </form>
+                    </td>
+                    <td>
+                        <a asp-page="UpdateParking" asp-route-id="@park.id"
+                           class="btn btn-primary btn-sm">
+                            Редактировать
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No parkings available or error occurred</p>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}

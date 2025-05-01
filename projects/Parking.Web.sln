@@ -18,7 +18,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Booking.Service", "Booking.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Parking", "Parking", "{397982CD-70F7-4D4C-A6B7-31A58861D40D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parking.Service.Contracts", "Parking.Service.Contracts\Parking.Service.Contracts.csproj", "{B8663995-1EE8-4DB0-9280-63D563BA4E70}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Parking.Service.Contracts", "Parking.Service.Contracts\Parking.Service.Contracts.csproj", "{B8663995-1EE8-4DB0-9280-63D563BA4E70}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

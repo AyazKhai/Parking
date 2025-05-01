@@ -1,0 +1,42 @@
+﻿@page "/parkings/update/{id}"
+@model Parking.Frontend.Pages.Parkings.UpdateParkingModel
+@{
+}
+
+<h2>Input data to update Paking</h2>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">
+        @Model.SuccessMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">
+        @Model.ErrorMessage
+    </div>
+}
+
+<form method="post">
+    <input type="hidden" asp-for="updatePark.id" />
+    <div class="form-group">
+        <label asp-for="updatePark.address"></label>
+        <input asp-for="updatePark.address" class="form-control" />
+        <span asp-validation-for="updatePark.address" class="text-danger"></span>
+    </div>
+
+    <div class="form-group">
+        <label asp-for="updatePark.information"></label>
+        <input asp-for="updatePark.information" class="form-control" />
+        <span asp-validation-for="updatePark.information" class="text-danger"></span>
+    </div>
+
+    <div class="form-group form-check">
+        <input type="checkbox" asp-for="updatePark.isAvailable" class="form-check-input" />
+        <label asp-for="updatePark.isAvailable" class="form-check-label"></label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Сохранить</button>
+</form>
