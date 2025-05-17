@@ -1,8 +1,10 @@
 ﻿using MassTransit;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Parking.API.Dtos;
 using Parking.Domain;
+using Parking.Service.Attributes;
 using Parking.Service.Contracts;
 using Parking.Service.Entities;
 
@@ -10,6 +12,7 @@ namespace Parking.API.Controllers
 {
     [ApiController]
     [Route("parkingSpots")]
+    [Authorize]
     public class ParkingSpotsController : ControllerBase
     {
         private readonly IRepository<ParkingSpot> parkingsSpotRepos;
@@ -22,13 +25,16 @@ namespace Parking.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ParkingSpotDto>>> GetAsync() 
+        [AllowAnonymous]
+        public async Task<ActionResult<IEnumerable<ParkingSpotDto>>> GetAsync()
         {
             var spots = (await parkingsSpotRepos.GetAllAsync()).Select(spots => spots.AsDto());
             return Ok(spots);
         }
 
         [HttpGet("{id}")]
+        [EnsureParkingSpotExists]
+        [AllowAnonymous]
         public async Task<ActionResult<ParkingSpotDto>> GetByIdAsync(Guid id) 
         {
             var item = await parkingsSpotRepos.GetAsync(id);
@@ -40,6 +46,7 @@ namespace Parking.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<ActionResult<ParkingSpotDto>> PostAsync(CreateParkingSpotDto crSpot) 
         {
             var spot = new ParkingSpot()
@@ -57,6 +64,7 @@ namespace Parking.API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> PutAsync(Guid id, UpdateParkingSpotDto upSpot) 
         {
             var spot = await parkingsSpotRepos.GetAsync(id);
@@ -81,6 +89,8 @@ namespace Parking.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
+        [EnsureParkingSpotExists]
         public async Task<IActionResult> DeleteAsync(Guid id)
         {
             var item = await parkingsSpotRepos.GetAsync(id);
@@ -93,4 +103,5 @@ namespace Parking.API.Controllers
             return NoContent();
         }
     }
+
 }

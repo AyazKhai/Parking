@@ -1,7 +1,10 @@
 ﻿using MassTransit;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Parking.API.Dtos;
 using Parking.Domain;
+using Parking.Service.Attributes;
 using Parking.Service.Contracts;
 using Parking.Service.Entities;
 
@@ -28,24 +31,20 @@ namespace Parking.API.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<ParkDto>> GetByIdAsync(Guid id) 
+        [EnsureParkExists]
+        public async Task<ActionResult<ParkDto>> GetByIdAsync(Guid id)
         {
-            var item = await ParkingRepos.GetAsync(id);
-            if (item is null) 
-            {
-                return NotFound();
-            }
-            return item.AsDto();
+            return (await ParkingRepos.GetAsync(id)).AsDto();
         }
 
         [HttpPost]
-        public async Task<ActionResult<ParkDto>> PostAsync(CreateParkDto crPark) 
+        public async Task<ActionResult<ParkDto>> PostAsync(CreateParkDto crPark)
         {
             var park = new Park()
             {
                 Address = crPark.address,
                 Information = crPark.information,
-                IsAvailable = crPark.isAvailable   
+                IsAvailable = crPark.isAvailable
             };
 
             await ParkingRepos.CreateAsync(park);
@@ -54,7 +53,7 @@ namespace Parking.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAsync(Guid id, UpdateParkDto upadtedParkDto) 
+        public async Task<IActionResult> PutAsync(Guid id, UpdateParkDto upadtedParkDto)
         {
             var park = await ParkingRepos.GetAsync(id);
             if (park is null)
@@ -79,19 +78,14 @@ namespace Parking.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [EnsureParkExists]
         public async Task<IActionResult> DeleteAsync(Guid id)
         {
-            var item = await ParkingRepos.GetAsync(id);
-
-            if (item is null)
-            {
-                return NotFound();
-            }
-
-            await ParkingRepos.RemoveAsync(item.Id);
-            await publishEndpoints.Publish(new ParkDeleteContract(item.Id));
+            await ParkingRepos.RemoveAsync(id);
+            await publishEndpoints.Publish(new ParkDeleteContract(id));
 
             return NoContent();
         }
     }
+
 }

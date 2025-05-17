@@ -7,6 +7,11 @@ using Parking.API.Services;
 using Parking.Domain.PostgreDb;
 using Parking.Service.Entities;
 using Parking.Domain.MassTransit;
+using Parking.Domain.Filters;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 
 
 namespace Parking.API
@@ -24,10 +29,37 @@ namespace Parking.API
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // Аутентификация с JWT
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+               .AddJwtBearer(options =>
+               {
+                   options.Authority = Configuration["Jwt:Authority"];
+                   options.Audience = "parking-service";
+                   options.RequireHttpsMetadata = false;
+                   options.TokenValidationParameters = new TokenValidationParameters
+                   {
+                       ValidateAudience = true,
+                       ValidAudiences = new[] { "parking-service", "gateway" },
+                       RoleClaimType = ClaimTypes.Role // Читаем роли из стандартного claim
+                   };
+               });
+
+            // Полноценная авторизация с ролями
+            services.AddAuthorization(options =>
+            {
+                // Индивидуальные политики для ролей
+                options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("ManagerOnly", policy => policy.RequireRole("Manager"));
+                options.AddPolicy("UserOnly", policy => policy.RequireRole("User"));
+                options.AddPolicy("AdminOrManager", policy => policy.RequireRole("Admin", "Manager"));
+
+                options.FallbackPolicy = null;
+            });
+
             services.AddPostgres<ApplcationDbContext>(Configuration)
                     .AddEfRepository<Park, ApplcationDbContext>()
                     .AddEfRepository<ParkingSpot, ApplcationDbContext>()
-                    .AddMassTransittWithRabbitMq(); ;
+                    .AddMassTransittWithRabbitMq();
 
             services.AddControllers();
             services.AddEndpointsApiExplorer();
@@ -36,6 +68,18 @@ namespace Parking.API
             {
                 options.SuppressAsyncSuffixInActionNames = false;// to stop deleting suffix Async in methods for corenctly web working
             });
+
+            services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(builder =>
+                {
+                    builder.WithOrigins("http://localhost:8000", "https://localhost:8001")
+                           .AllowAnyHeader()
+                           .AllowAnyMethod()
+                           .AllowCredentials();
+                });
+            });
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Parking.API", Version = "v1" });
@@ -59,10 +103,12 @@ namespace Parking.API
                 });
             }
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
+            app.UseCors();
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
