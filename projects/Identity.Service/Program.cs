@@ -5,6 +5,12 @@ using Identity.Service.Roles;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Identity.Service.Roles;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Configuration;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,13 +18,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add Authentication
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultScheme = IdentityConstants.ApplicationScheme; 
-    options.DefaultChallengeScheme = IdentityConstants.BearerScheme; 
-}).AddCookie(IdentityConstants.ApplicationScheme).AddBearerToken(IdentityConstants.BearerScheme);
 
+builder.Services.AddCustomAuthntication(builder.Configuration);
 
 builder.Services.AddAuthorization(options =>
 {
@@ -31,14 +32,32 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddDbContext<AppDBContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add IdentityCore
 builder.Services
-    .AddIdentityCore<User>()
+    .AddIdentityCore<User>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = false; 
+    })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDBContext>()
-    .AddApiEndpoints(); 
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+var parentDirectory = Path.GetFullPath(Path.Combine(
+    builder.Environment.ContentRootPath,
+    ".."  // Поднимаемся на один уровень вверх
+));
+
+// Создаём папку для ключей (например, "SharedKeys")
+var keysPath = Path.Combine(parentDirectory, "SharedKeys");
+Directory.CreateDirectory(keysPath);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysPath))
+    .SetApplicationName("MyAuthApp");
+
 
 var app = builder.Build();
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -46,15 +65,24 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-//app.UseHttpsRedirection();
-app.UseRouting();
 
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+//app.UseHttpsRedirection();
+app.UseCors(x => x
+    .WithOrigins(allowedOrigins)
+    .AllowAnyMethod()
+    .AllowAnyHeader()
+    .AllowCredentials());
+
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
 
 app.MapControllers();
 app.CustomMapIdentityApi<User>();
 app.MapRoleManagementApi<User>();
-//app.MapIdentityApi<User>();
+
+
 app.Run();
 

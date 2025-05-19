@@ -35,18 +35,15 @@ namespace Identity.Service.Extensions
 
             var timeProvider = endpoints.ServiceProvider.GetRequiredService<TimeProvider>();
             var bearerTokenOptions = endpoints.ServiceProvider.GetRequiredService<IOptionsMonitor<BearerTokenOptions>>();
-            var emailSender = endpoints.ServiceProvider.GetRequiredService<IEmailSender<TUser>>();
+            //var emailSender = endpoints.ServiceProvider.GetRequiredService<IEmailSender<TUser>>();
             var linkGenerator = endpoints.ServiceProvider.GetRequiredService<LinkGenerator>();
 
             // We'll figure out a unique endpoint name based on the final route pattern during endpoint generation.
             string? confirmEmailEndpointName = null;
 
             var routeGroup = endpoints.MapGroup("");
-
-            // NOTE: We cannot inject UserManager<TUser> directly because the TUser generic parameter is currently unsupported by RDG.
-            // https://github.com/dotnet/aspnetcore/issues/47338
             routeGroup.MapPost("/register", async Task<Results<Ok, ValidationProblem>>
-                ([FromBody] CreateUserDto registration, HttpContext context, [FromServices] IServiceProvider sp) =>
+            ([FromBody] CreateUserDto registration, HttpContext context, [FromServices] IServiceProvider sp) =>
             {
                 var userManager = sp.GetRequiredService<UserManager<TUser>>();
                 var roleManager = sp.GetRequiredService<RoleManager<IdentityRole>>();
@@ -89,52 +86,48 @@ namespace Identity.Service.Extensions
                 return TypedResults.Ok();
             });
 
-            routeGroup.MapPost("/login", async Task<Results<Ok<AccessTokenResponse>, EmptyHttpResult, ProblemHttpResult>>
-                ([FromBody] LoginRequest login, [FromQuery] bool? useCookies, [FromQuery] bool? useSessionCookies, [FromServices] IServiceProvider sp) =>
+            routeGroup.MapPost("/login", async Task<Results<Ok, UnauthorizedHttpResult>>
+           ([FromBody] LoginRequest login, [FromServices] IServiceProvider sp) =>
             {
                 var signInManager = sp.GetRequiredService<SignInManager<TUser>>();
 
-                var useCookieScheme = (useCookies == true) || (useSessionCookies == true);
-                var isPersistent = (useCookies == true) && (useSessionCookies != true);
-                signInManager.AuthenticationScheme = useCookieScheme ? IdentityConstants.ApplicationScheme : IdentityConstants.BearerScheme;
-
-                var result = await signInManager.PasswordSignInAsync(login.Email, login.Password, isPersistent, lockoutOnFailure: true);
+                // Убраны параметры useCookies/useSessionCookies, всегда используем cookies
+                var result = await signInManager.PasswordSignInAsync(
+                    login.Email,
+                    login.Password,
+                    isPersistent: true, // Сохраняем cookie
+                    lockoutOnFailure: true);
 
                 if (result.RequiresTwoFactor)
                 {
+                    // Обработка двухфакторной аутентификации
                     if (!string.IsNullOrEmpty(login.TwoFactorCode))
                     {
-                        result = await signInManager.TwoFactorAuthenticatorSignInAsync(login.TwoFactorCode, isPersistent, rememberClient: isPersistent);
+                        result = await signInManager.TwoFactorAuthenticatorSignInAsync(
+                            login.TwoFactorCode,
+                            isPersistent: true,
+                            rememberClient: true);
                     }
                     else if (!string.IsNullOrEmpty(login.TwoFactorRecoveryCode))
                     {
-                        result = await signInManager.TwoFactorRecoveryCodeSignInAsync(login.TwoFactorRecoveryCode);
+                        result = await signInManager.TwoFactorRecoveryCodeSignInAsync(
+                            login.TwoFactorRecoveryCode);
                     }
                 }
 
-                if (!result.Succeeded)
-                {
-                    return TypedResults.Problem(result.ToString(), statusCode: StatusCodes.Status401Unauthorized);
-                }
-
-                // The signInManager already produced the needed response in the form of a cookie or bearer token.
-                return TypedResults.Empty;
+                return result.Succeeded ? TypedResults.Ok() : TypedResults.Unauthorized();
             });
 
-            routeGroup.MapPost("/logout", async Task<IResult> ([FromServices] IServiceProvider sp, [FromBody] object empty) => {
+            // Упрощенный эндпоинт выхода
+            routeGroup.MapPost("/logout", async Task<IResult> ([FromServices] IServiceProvider sp) =>
+            {
                 var signInManager = sp.GetRequiredService<SignInManager<TUser>>();
+                await signInManager.SignOutAsync();
+                return Results.Ok();
+            }).RequireAuthorization();
 
-                if (empty != null)
-                {
-                    await signInManager.SignOutAsync().ConfigureAwait(false);
-                    return Results.Ok();
-                }
-                return Results.Unauthorized();
-            })
-            .WithOpenApi()
-            .RequireAuthorization();
 
-            routeGroup.MapPost("/refresh", async Task<Results<Ok<AccessTokenResponse>, UnauthorizedHttpResult, SignInHttpResult, ChallengeHttpResult>>
+        routeGroup.MapPost("/refresh", async Task<Results<Ok<AccessTokenResponse>, UnauthorizedHttpResult, SignInHttpResult, ChallengeHttpResult>>
                 ([FromBody] RefreshRequest refreshRequest, [FromServices] IServiceProvider sp) =>
             {
                 var signInManager = sp.GetRequiredService<SignInManager<TUser>>();
@@ -224,13 +217,13 @@ namespace Identity.Service.Extensions
                 var userManager = sp.GetRequiredService<UserManager<TUser>>();
                 var user = await userManager.FindByEmailAsync(resetRequest.Email);
 
-                if (user is not null && await userManager.IsEmailConfirmedAsync(user))
-                {
-                    var code = await userManager.GeneratePasswordResetTokenAsync(user);
-                    code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+                //if (user is not null && await userManager.IsEmailConfirmedAsync(user))
+                //{
+                //    var code = await userManager.GeneratePasswordResetTokenAsync(user);
+                //    code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
-                    await emailSender.SendPasswordResetCodeAsync(user, resetRequest.Email, HtmlEncoder.Default.Encode(code));
-                }
+                //    await emailSender.SendPasswordResetCodeAsync(user, resetRequest.Email, HtmlEncoder.Default.Encode(code));
+                //}
 
                 // Don't reveal that the user does not exist or is not confirmed, so don't return a 200 if we would have
                 // returned a 400 for an invalid code given a valid user email.
@@ -430,7 +423,7 @@ namespace Identity.Service.Extensions
                 var confirmEmailUrl = linkGenerator.GetUriByName(context, confirmEmailEndpointName, routeValues)
                     ?? throw new NotSupportedException($"Could not find endpoint named '{confirmEmailEndpointName}'.");
 
-                await emailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(confirmEmailUrl));
+               // await emailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(confirmEmailUrl));
             }
 
             return new IdentityEndpointsConventionBuilder(routeGroup);

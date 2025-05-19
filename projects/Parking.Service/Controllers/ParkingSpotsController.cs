@@ -28,6 +28,7 @@ namespace Parking.API.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<ParkingSpotDto>>> GetAsync()
         {
+            var rnd = new Random();
             var spots = (await parkingsSpotRepos.GetAllAsync()).Select(spots => spots.AsDto());
             return Ok(spots);
         }
@@ -89,7 +90,7 @@ namespace Parking.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "AdminOnly")]
+        [Authorize(Policy = "Admin")]
         [EnsureParkingSpotExists]
         public async Task<IActionResult> DeleteAsync(Guid id)
         {

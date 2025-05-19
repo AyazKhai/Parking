@@ -18,7 +18,16 @@ services:
       POSTGRES_PASSWORD: "bookingpassword"
     ports:
       - "5433:5432" 
-
+ 
+  postgres_db3:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: "Identity"
+      POSTGRES_USER: "user3"
+      POSTGRES_PASSWORD: "identitypassword"
+    ports:
+      - "5434:5432" 
+    
   rabbitmq:
     image: rabbitmq:management
     container_name: rabbitmq
@@ -29,8 +38,18 @@ services:
       - rabbitmqdata:/var/lib/rabbitmq
     hostname: rabbitmq
 
+  postgres_db4_keys:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: "ProtectionKeys"
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "key"
+    ports:
+      - "5435:5432"
+
 volumes:
   postgres:
   postgres_db2:
+  postgres_db3:
   rabbitmqdata:
 

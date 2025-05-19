@@ -12,6 +12,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 
 
 namespace Parking.API
@@ -29,28 +32,25 @@ namespace Parking.API
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            // Аутентификация с JWT
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-               .AddJwtBearer(options =>
-               {
-                   options.Authority = Configuration["Jwt:Authority"];
-                   options.Audience = "parking-service";
-                   options.RequireHttpsMetadata = false;
-                   options.TokenValidationParameters = new TokenValidationParameters
-                   {
-                       ValidateAudience = true,
-                       ValidAudiences = new[] { "parking-service", "gateway" },
-                       RoleClaimType = ClaimTypes.Role // Читаем роли из стандартного claim
-                   };
-               });
+            services.AddDataProtection()
+                    .PersistKeysToFileSystem(new DirectoryInfo("C:/temp/keys/")) 
+                    .SetApplicationName("MyAuthApp");
 
-            // Полноценная авторизация с ролями
+            services.AddAuthentication(IdentityConstants.ApplicationScheme)
+                    .AddCookie("Identity.Application", options =>
+                    {
+                        options.Cookie.Name = Configuration["CookieAuthentication:Name"];
+                        options.Cookie.SameSite = SameSiteMode.None;
+                        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                        options.ExpireTimeSpan = TimeSpan.FromDays(15);
+                        options.Cookie.Domain = Configuration["CookieAuthentication:Domain"];
+                    });
+
             services.AddAuthorization(options =>
             {
-                // Индивидуальные политики для ролей
-                options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-                options.AddPolicy("ManagerOnly", policy => policy.RequireRole("Manager"));
-                options.AddPolicy("UserOnly", policy => policy.RequireRole("User"));
+                options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("Manager", policy => policy.RequireRole("Manager"));
+                options.AddPolicy("User", policy => policy.RequireRole("User"));
                 options.AddPolicy("AdminOrManager", policy => policy.RequireRole("Admin", "Manager"));
 
                 options.FallbackPolicy = null;
@@ -69,16 +69,6 @@ namespace Parking.API
                 options.SuppressAsyncSuffixInActionNames = false;// to stop deleting suffix Async in methods for corenctly web working
             });
 
-            services.AddCors(options =>
-            {
-                options.AddDefaultPolicy(builder =>
-                {
-                    builder.WithOrigins("http://localhost:8000", "https://localhost:8001")
-                           .AllowAnyHeader()
-                           .AllowAnyMethod()
-                           .AllowCredentials();
-                });
-            });
 
             services.AddSwaggerGen(c =>
             {
@@ -94,33 +84,31 @@ namespace Parking.API
                 app.UseDeveloperExceptionPage();
                 app.UseSwagger();
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Parking.API v1"));
-
-                app.UseCors(builder =>
-                {
-                    builder.WithOrigins("AllowedOrigin")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod();
-                });
             }
-
-            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
-            app.UseCors();
+            var allowedOrigins = Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
+            app.UseCors(x => x
+                .WithOrigins(allowedOrigins)
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials());
+
+            app.UseCookiePolicy(new CookiePolicyOptions
+            {
+                MinimumSameSitePolicy = Microsoft.AspNetCore.Http.SameSiteMode.None,
+                Secure = CookieSecurePolicy.Always,
+                HttpOnly = Microsoft.AspNetCore.CookiePolicy.HttpOnlyPolicy.Always
+            });
+
             app.UseAuthentication();
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-            });
-
-            app.UseCors(x => 
-            {
-                x.WithHeaders().AllowAnyHeader();
-                x.WithOrigins("http://localhost:3000");
-                x.WithMethods().AllowAnyMethod();
             });
         }
     }

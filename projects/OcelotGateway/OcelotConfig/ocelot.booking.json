@@ -1,0 +1,34 @@
+﻿//{
+//  "Routes": [
+//    {
+//      "UpstreamPathTemplate": "/booking/{everything}",
+//      "DownstreamPathTemplate": "/{everything}",
+//      "ServiceName": "booking",
+//      "UpstreamHttpMethod": [ "Get", "Post", "Put", "Delete" ],
+//      "SwaggerKey": "booking"
+//    }
+//  ]
+//}
+
+
+{
+  "Routes": [
+    {
+      "UpstreamPathTemplate": "/booking/{everything}",
+      "DownstreamPathTemplate": "/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6000
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get", "Post", "Put", "Delete" ],
+      "SwaggerKey": "booking",
+      "DangerousAcceptAnyServerCertificateValidator": true
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "https://localhost:8000"
+  }
+}
